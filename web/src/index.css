@@ -30,6 +30,11 @@
     --chart-3: oklch(0.546 0.245 262.881);
     --chart-4: oklch(0.488 0.243 264.376);
     --chart-5: oklch(0.424 0.199 265.638);
+    --sun: oklch(0.78 0.16 72);
+    --sun-soft: oklch(0.9 0.09 82);
+    --twin: oklch(0.62 0.14 285);
+    --daylight: oklch(0.93 0.045 230);
+    --night: oklch(0.55 0.03 265);
     --radius: 0.45rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.141 0.005 285.823);
@@ -65,6 +70,11 @@
     --chart-3: oklch(0.546 0.245 262.881);
     --chart-4: oklch(0.488 0.243 264.376);
     --chart-5: oklch(0.424 0.199 265.638);
+    --sun: oklch(0.83 0.16 78);
+    --sun-soft: oklch(0.68 0.12 72);
+    --twin: oklch(0.75 0.13 290);
+    --daylight: oklch(0.45 0.06 240);
+    --night: oklch(0.62 0.03 265);
     --sidebar: oklch(0.21 0.006 285.885);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -76,6 +86,11 @@
 }
 
 @theme inline {
+    --color-sun: var(--sun);
+    --color-sun-soft: var(--sun-soft);
+    --color-twin: var(--twin);
+    --color-daylight: var(--daylight);
+    --color-night: var(--night);
     --font-sans: 'Figtree Variable', sans-serif;
     --font-heading: 'Geist Variable', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
