@@ -634,34 +634,98 @@ const partsFormatter = new Intl.DateTimeFormat("en-US", {
   second: "2-digit",
 })
 
-/** Break an instant into Swedish wall-clock fields. */
-export function toLocal(ms: number): LocalDateTime & { second: number } {
+/** Wall-clock fields straight out of the zone database, via Intl. */
+function lookupOffsetMinutes(ms: number) {
   const parts = partsFormatter.formatToParts(new Date(ms))
   const read = (type: Intl.DateTimeFormatPartTypes) =>
     Number(parts.find((part) => part.type === type)?.value ?? "0")
 
-  return {
-    year: read("year"),
-    month: read("month"),
-    day: read("day"),
-    hour: read("hour"),
-    minute: read("minute"),
-    second: read("second"),
+  const asUtc = Date.UTC(
+    read("year"),
+    read("month") - 1,
+    read("day"),
+    read("hour"),
+    read("minute"),
+    read("second")
+  )
+  return (asUtc - Math.floor(ms / 1000) * 1000) / MS_PER_MINUTE
+}
+
+type ZoneYear = {
+  standard: number
+  summer: number
+  /** Instants the clocks change, or -Infinity where the zone has no DST. */
+  start: number
+  end: number
+}
+
+const zoneCache = new Map<number, ZoneYear>()
+
+/** Bisect for the minute the offset changes between two instants. */
+function findTransition(lo: number, hi: number) {
+  const before = lookupOffsetMinutes(lo)
+  for (let i = 0; i < 40; i++) {
+    const middle = Math.floor((lo + hi) / 2)
+    if (lookupOffsetMinutes(middle) === before) {
+      lo = middle
+    } else {
+      hi = middle
+    }
   }
+  return hi
+}
+
+/**
+ * Sweden's two clock changes for a year, found once and cached.
+ *
+ * Asking Intl for the offset costs a formatToParts every time, and the charts
+ * ask hundreds of times per frame. A zone only changes offset twice a year, so
+ * pinning down those two instants turns every later lookup into a comparison.
+ * The transitions are still derived from the zone database rather than assumed,
+ * so a rule change would be picked up.
+ */
+function zoneYear(year: number): ZoneYear {
+  const cached = zoneCache.get(year)
+  if (cached) {
+    return cached
+  }
+
+  const january = Date.UTC(year, 0, 15)
+  const july = Date.UTC(year, 6, 15)
+  const standard = lookupOffsetMinutes(january)
+  const summer = lookupOffsetMinutes(july)
+
+  const zone: ZoneYear =
+    standard === summer
+      ? { standard, summer, start: -Infinity, end: -Infinity }
+      : {
+          standard,
+          summer,
+          start: findTransition(january, july),
+          end: findTransition(july, Date.UTC(year + 1, 0, 15)),
+        }
+
+  zoneCache.set(year, zone)
+  return zone
 }
 
 /** Offset of Europe/Stockholm from UTC, in minutes, at a given instant. */
 function timeZoneOffsetMinutes(ms: number) {
-  const local = toLocal(ms)
-  const asUtc = Date.UTC(
-    local.year,
-    local.month - 1,
-    local.day,
-    local.hour,
-    local.minute,
-    local.second
-  )
-  return (asUtc - Math.floor(ms / 1000) * 1000) / MS_PER_MINUTE
+  const zone = zoneYear(new Date(ms).getUTCFullYear())
+  return ms >= zone.start && ms < zone.end ? zone.summer : zone.standard
+}
+
+/** Break an instant into Swedish wall-clock fields. */
+export function toLocal(ms: number): LocalDateTime & { second: number } {
+  const shifted = new Date(ms + timeZoneOffsetMinutes(ms) * MS_PER_MINUTE)
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+  }
 }
 
 /**

@@ -44,6 +44,7 @@ import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { DayArcChart } from "@/components/day-arc-chart"
 import { SunLegend, SwedenMap } from "@/components/sweden-map"
+import { GlobeRays } from "@/components/globe-rays"
 import { YearChart } from "@/components/year-chart"
 
 const STORAGE_KEY = "sun-position:v1"
@@ -570,17 +571,6 @@ export function SunPosition() {
 
             <div className="flex flex-col gap-2 text-sm text-muted-foreground">
               <p>
-                <span className="text-foreground">
-                  Lambert&apos;s cosine law
-                </span>{" "}
-                is why the shading changes with latitude. A beam of fixed width
-                lands on a patch of ground stretched by 1/sin(elevation), so the
-                energy per square metre is sin(elevation) of what it would be
-                with the sun overhead — 100% at the zenith, 50% at 30°, 9% at
-                5°. Sweden is 1 570 km tall, so the far north sits several
-                degrees lower in the sky than Skåne at the very same moment.
-              </p>
-              <p>
                 <span className="text-foreground">Air mass</span> piles on top
                 of that: a low sun shines through a far longer slab of
                 atmosphere — about 38 times the overhead thickness right at the
@@ -604,6 +594,49 @@ export function SunPosition() {
                 the south has already dropped into twilight.
               </p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>One beam, more ground</CardTitle>
+          <CardDescription className="text-xs">
+            The same country on a curved Earth, lit by parallel sunbeams. Every
+            thin line carries the same energy; the red patch is the ground a
+            single beam has to cover. Sweden runs 1 570 km up the curve, so the
+            beam that lands almost square on Skåne arrives at a slant in
+            Lappland and smears over far more ground.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
+          <GlobeRays instant={instant} coords={coords} />
+
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+            <p>
+              <span className="text-foreground">
+                Lambert&apos;s cosine law.
+              </span>{" "}
+              Tilt a surface away from a beam and the same light spreads over
+              1/sin(elevation) as much ground, so each square metre collects
+              sin(elevation) of what it would with the sun overhead — 100% at
+              the zenith, 50% at 30°, 9% at 5°. Nothing about the sunlight
+              changes; only the angle it meets the ground at.
+            </p>
+            <p>
+              Two things set that angle. The Earth&apos;s{" "}
+              <span className="text-foreground">curvature</span> means every
+              degree of latitude tips the ground a degree further from the beam,
+              and the 23.4° <span className="text-foreground">tilt</span> of the
+              axis swings which latitude gets the square-on hit through the
+              year. In June the tilt lifts the whole country towards the sun; in
+              December it leans the same country away.
+            </p>
+            <p>
+              The stretch factor next to each city is exactly 1/sin(elevation) —
+              the number of square metres of Swedish ground it takes to catch
+              what one square metre of beam is carrying.
+            </p>
           </div>
         </CardContent>
       </Card>
