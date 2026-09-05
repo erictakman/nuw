@@ -7,6 +7,11 @@ import {
   irradianceColor,
   REFRACTION_COLOR,
 } from "@/lib/sun-shading"
+import {
+  buildLightGrid,
+  paintLightField,
+  type LightGrid,
+} from "@/lib/light-field"
 import { createProjection } from "@/lib/map-projection"
 import { isoElevationLevels, isoElevationLine } from "@/lib/iso-elevation"
 import { SWEDEN_RINGS } from "@/lib/sweden"
@@ -25,44 +30,6 @@ const FIELD_WIDTH = 154
 const FIELD_HEIGHT = 370
 
 const DEG = Math.PI / 180
-
-type Grid = {
-  sinLatitude: Float32Array
-  cosLatitude: Float32Array
-  sinLongitude: Float32Array
-  cosLongitude: Float32Array
-}
-
-/**
- * Pre-compute the trigonometry of every sample point. The grid never moves, so
- * per frame only the sun's declination and hour angle change.
- */
-function buildGrid(): Grid {
-  const projection = createProjection(WIDTH, HEIGHT)
-  const count = FIELD_WIDTH * FIELD_HEIGHT
-  const grid: Grid = {
-    sinLatitude: new Float32Array(count),
-    cosLatitude: new Float32Array(count),
-    sinLongitude: new Float32Array(count),
-    cosLongitude: new Float32Array(count),
-  }
-
-  for (let row = 0; row < FIELD_HEIGHT; row++) {
-    for (let column = 0; column < FIELD_WIDTH; column++) {
-      const [longitude, latitude] = projection.unproject(
-        ((column + 0.5) / FIELD_WIDTH) * WIDTH,
-        ((row + 0.5) / FIELD_HEIGHT) * HEIGHT
-      )
-      const index = row * FIELD_WIDTH + column
-      grid.sinLatitude[index] = Math.sin(latitude * DEG)
-      grid.cosLatitude[index] = Math.cos(latitude * DEG)
-      grid.sinLongitude[index] = Math.sin(longitude * DEG)
-      grid.cosLongitude[index] = Math.cos(longitude * DEG)
-    }
-  }
-
-  return grid
-}
 
 /** Ray casting: a point is on land if it is inside any one of the rings. */
 function onLand(rings: Array<Array<[number, number]>>, x: number, y: number) {
@@ -89,8 +56,9 @@ type SwedenMapProps = {
 
 export function SwedenMap({ instant, coords }: SwedenMapProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
-  const gridRef = React.useRef<Grid | null>(null)
+  const gridRef = React.useRef<LightGrid | null>(null)
   const bufferRef = React.useRef<HTMLCanvasElement | null>(null)
+  const imageRef = React.useRef<ImageData | null>(null)
 
   const clipId = React.useId()
   const projection = React.useMemo(() => createProjection(WIDTH, HEIGHT), [])
@@ -145,7 +113,9 @@ export function SwedenMap({ instant, coords }: SwedenMapProps) {
     }
 
     if (!gridRef.current) {
-      gridRef.current = buildGrid()
+      gridRef.current = buildLightGrid(FIELD_WIDTH, FIELD_HEIGHT, (u, v) =>
+        projection.unproject(u * WIDTH, v * HEIGHT)
+      )
     }
     if (!bufferRef.current) {
       const buffer = document.createElement("canvas")
@@ -154,7 +124,6 @@ export function SwedenMap({ instant, coords }: SwedenMapProps) {
       bufferRef.current = buffer
     }
 
-    const grid = gridRef.current
     const buffer = bufferRef.current
     const bufferContext = buffer.getContext("2d")
     const context = canvas.getContext("2d")
@@ -162,31 +131,14 @@ export function SwedenMap({ instant, coords }: SwedenMapProps) {
       return
     }
 
-    const sinDeclination = Math.sin(declination * DEG)
-    const cosDeclination = Math.cos(declination * DEG)
-    const sinBase = Math.sin(baseHourAngle * DEG)
-    const cosBase = Math.cos(baseHourAngle * DEG)
-
-    const image = bufferContext.createImageData(FIELD_WIDTH, FIELD_HEIGHT)
-    const data = image.data
-
-    for (let index = 0; index < FIELD_WIDTH * FIELD_HEIGHT; index++) {
-      // cos(H) with H = baseHourAngle + longitude, expanded so the per-point
-      // sines and cosines can come from the cached grid.
-      const cosHourAngle =
-        cosBase * grid.cosLongitude[index] - sinBase * grid.sinLongitude[index]
-      const sinElevation =
-        grid.sinLatitude[index] * sinDeclination +
-        grid.cosLatitude[index] * cosDeclination * cosHourAngle
-      const elevation = Math.asin(Math.max(-1, Math.min(1, sinElevation))) / DEG
-
-      const [r, g, b] = fieldColor(elevation)
-      const offset = index * 4
-      data[offset] = r
-      data[offset + 1] = g
-      data[offset + 2] = b
-      data[offset + 3] = 255
+    if (!imageRef.current) {
+      imageRef.current = bufferContext.createImageData(
+        FIELD_WIDTH,
+        FIELD_HEIGHT
+      )
     }
+    const image = imageRef.current
+    paintLightField(image.data, gridRef.current, declination, baseHourAngle)
 
     bufferContext.putImageData(image, 0, 0)
 
@@ -206,7 +158,7 @@ export function SwedenMap({ instant, coords }: SwedenMapProps) {
     context.imageSmoothingQuality = "high"
     context.drawImage(buffer, 0, 0, WIDTH, HEIGHT)
     context.restore()
-  }, [outline, declination, baseHourAngle])
+  }, [outline, projection, declination, baseHourAngle])
 
   const here = projection.project(coords.longitude, coords.latitude)
   const herePosition = solarPosition(instant, coords)

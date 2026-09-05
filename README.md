@@ -56,6 +56,26 @@ Sweden's outline is Natural Earth 1:50m, simplified to 322 points and vendored
 as a TypeScript module — no map library, no runtime fetch. The projection is a
 Lambert conformal conic with standard parallels at 58°N and 66°N.
 
+## The globe
+
+A second view puts Sweden on a curved Earth and draws the sunbeams landing on
+it. Every beam is the same width and carries the same energy; the red bar under
+each city is the ground one beam has to cover, sized by 1/sin(elevation) — the
+stretch factor printed beside it. That is **Lambert's cosine law**, and the two
+things setting the angle are the Earth's curvature (every degree of latitude
+tips the ground a degree further from the beam) and the 23.4° axial tilt (which
+swings the square-on hit through the year).
+
+The Earth is the unit sphere seen through a pinhole camera in low orbit, which
+makes the geometry cheap: a surface point faces the lens exactly when `p · C > 1`,
+and ray-sphere intersection is a two-term quadratic. Two deliberate departures
+from strict perspective, both marked in the code: beams share one screen
+direction, because a perspective camera draws parallel light converging on a
+vanishing point and it then reads as a lamp rather than the sun; and the
+footprint bars are scaled against each other rather than in perspective, so
+Malmö's ×1.2 patch cannot end up looking bigger than Kiruna's ×1.4 just for
+being nearer the lens.
+
 ## Running it
 
 ```sh
