@@ -1,7 +1,14 @@
 import * as React from "react"
-import { IconArrowRight, IconMoon, IconSun } from "@tabler/icons-react"
+import {
+  IconArrowRight,
+  IconMoon,
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconSun,
+} from "@tabler/icons-react"
 
 import {
+  airMass,
   compassPoint,
   dayEvents,
   dayOfYear,
@@ -36,6 +43,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { DayArcChart } from "@/components/day-arc-chart"
+import { SunLegend, SwedenMap } from "@/components/sweden-map"
 import { YearChart } from "@/components/year-chart"
 
 const STORAGE_KEY = "sun-position:v1"
@@ -232,6 +240,38 @@ export function SunPosition() {
     }
   }, [state])
 
+  const [playing, setPlaying] = React.useState(false)
+
+  // Sweep the clock through a whole day in about twenty seconds. Whole minutes
+  // go into state; the fraction is carried in a ref so slow frames do not lose
+  // time.
+  React.useEffect(() => {
+    if (!playing) {
+      return undefined
+    }
+
+    let frame = 0
+    let previous = performance.now()
+    let carry = 0
+
+    const step = (now: number) => {
+      carry += (now - previous) * 0.072
+      previous = now
+      const whole = Math.floor(carry)
+      if (whole > 0) {
+        carry -= whole
+        setState((current) => ({
+          ...current,
+          minutes: (current.minutes + whole) % 1440,
+        }))
+      }
+      frame = requestAnimationFrame(step)
+    }
+
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [playing])
+
   const latitude = parseCoordinate(state.latitude, 90)
   const longitude = parseCoordinate(state.longitude, 180)
   const coordsValid = latitude !== null && longitude !== null
@@ -426,16 +466,27 @@ export function SunPosition() {
                   {formatClock(state.minutes)}
                 </span>
               </div>
-              <Slider
-                min={0}
-                max={1439}
-                step={1}
-                value={state.minutes}
-                onValueChange={(minutes) =>
-                  setState((current) => ({ ...current, minutes }))
-                }
-                aria-label="Time of day"
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  aria-label={playing ? "Pause" : "Play through the day"}
+                  onClick={() => setPlaying((current) => !current)}
+                >
+                  {playing ? <IconPlayerPause /> : <IconPlayerPlay />}
+                </Button>
+                <Slider
+                  min={0}
+                  max={1439}
+                  step={1}
+                  value={state.minutes}
+                  onValueChange={(minutes) => {
+                    setPlaying(false)
+                    setState((current) => ({ ...current, minutes }))
+                  }}
+                  aria-label="Time of day"
+                />
+              </div>
             </div>
           </div>
 
@@ -468,6 +519,91 @@ export function SunPosition() {
             >
               5 May
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Where the light lands, {formatTime(instant)}</CardTitle>
+          <CardDescription className="text-xs">
+            Every point of Sweden shaded by how much sunlight a flat square
+            metre there is collecting at this instant. Move the date and time
+            sliders — or press play — and watch the edge sweep across.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,300px)_1fr]">
+          <SwedenMap instant={instant} coords={coords} />
+
+          <div className="flex flex-col gap-4">
+            <SunLegend />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Stat
+                label="Energy here vs overhead"
+                value={`${Math.round(Math.max(0, Math.sin((position.elevation * Math.PI) / 180)) * 100)}%`}
+              />
+              <Stat
+                label="Air mass"
+                value={
+                  Number.isFinite(airMass(position.elevation))
+                    ? `${airMass(position.elevation).toFixed(2)}×`
+                    : "—"
+                }
+              />
+              <Stat
+                label="Kiruna"
+                value={formatDegrees(
+                  solarPosition(instant, SWEDISH_PLACES[0]).elevation
+                )}
+              />
+              <Stat
+                label="Malmö"
+                value={formatDegrees(
+                  solarPosition(
+                    instant,
+                    SWEDISH_PLACES[SWEDISH_PLACES.length - 1]
+                  ).elevation
+                )}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <p>
+                <span className="text-foreground">
+                  Lambert&apos;s cosine law
+                </span>{" "}
+                is why the shading changes with latitude. A beam of fixed width
+                lands on a patch of ground stretched by 1/sin(elevation), so the
+                energy per square metre is sin(elevation) of what it would be
+                with the sun overhead — 100% at the zenith, 50% at 30°, 9% at
+                5°. Sweden is 1 570 km tall, so the far north sits several
+                degrees lower in the sky than Skåne at the very same moment.
+              </p>
+              <p>
+                <span className="text-foreground">Air mass</span> piles on top
+                of that: a low sun shines through a far longer slab of
+                atmosphere — about 38 times the overhead thickness right at the
+                horizon — which is what makes it dim and red.
+              </p>
+              <p>
+                <span className="text-foreground">Atmospheric refraction</span>{" "}
+                is the bending itself. Air is denser low down, so light curves
+                gently towards the ground and follows the Earth&apos;s curvature
+                a little way past the geometric horizon — about 34 arcminutes at
+                the horizon, half a degree. The rose strip is the ground that
+                the bend lifts into daylight: without an atmosphere it would be
+                dark. It also stretches Swedish days by several minutes at each
+                end.
+              </p>
+              <p>
+                The moving boundary itself is the{" "}
+                <span className="text-foreground">terminator</span>. It runs
+                north-south at the equinoxes and tilts hard at the solstices,
+                which is why in June it can leave the north of Sweden lit while
+                the south has already dropped into twilight.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

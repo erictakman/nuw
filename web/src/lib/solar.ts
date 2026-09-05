@@ -136,6 +136,15 @@ export function solarDeclination(ms: number) {
 }
 
 /**
+ * Declination and equation of time for an instant, without an observer. Both
+ * are the same everywhere on Earth, so a map covering one country can compute
+ * them once and vary only the hour angle across it.
+ */
+export function sunAngles(ms: number): SunState {
+  return sunState(ms)
+}
+
+/**
  * Atmospheric refraction in degrees, which lifts the sun's apparent position.
  * It is worth ~34 arcminutes at the horizon and vanishes overhead, which is
  * why the sun is already fully visible when it is still geometrically below
@@ -216,6 +225,20 @@ export function solarPosition(ms: number, coords: Coordinates): SolarPosition {
     hourAngle,
     equationOfTime,
   }
+}
+
+/**
+ * Relative thickness of atmosphere the light crosses, 1 with the sun overhead.
+ * Kasten & Young's fit, which stays sane down at the horizon where a plain
+ * 1/sin(h) blows up — at sunrise the beam crosses about 38 atmospheres, which
+ * is why it arrives dim and red.
+ */
+export function airMass(elevation: number) {
+  if (elevation < -0.833) {
+    return Infinity
+  }
+  const h = Math.max(elevation, 0)
+  return 1 / (Math.sin(h * DEG) + 0.50572 * Math.pow(h + 6.07995, -1.6364))
 }
 
 /** Sixteen-point compass label for an azimuth. */

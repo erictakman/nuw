@@ -28,6 +28,34 @@ Positions come from the NOAA solar-position algorithm (a condensed Meeus), with
 atmospheric refraction applied near the horizon. Wall clocks are Europe/Stockholm
 throughout, DST included.
 
+## The map
+
+A second view shades every point of Sweden by how much sunlight a flat square
+metre there is collecting at that instant, driven by the same date and time
+sliders. Three separate effects are on show, and they are often muddled
+together:
+
+- **Lambert's cosine law** — a beam of fixed width lands on ground stretched by
+  1/sin(elevation), so energy per square metre is sin(elevation) of the
+  overhead maximum. This is the main reason the north gets less.
+- **Air mass** — a low sun also shines through a far longer slab of atmosphere,
+  about 38 times the overhead thickness at the horizon, which is what makes it
+  dim and red. Shown as a number, not in the shading.
+- **Atmospheric refraction** — the actual bending. Denser air near the ground
+  curves light downwards so it follows the Earth's curvature a little past the
+  geometric horizon, about 34 arcminutes. The rose strip on the map is ground
+  lit only by that bend; without an atmosphere it would be dark. At midnight in
+  June the strip sits right on the Arctic Circle, which is why the midnight sun
+  reaches slightly further south than the geometry allows.
+
+The moving boundary is the **terminator**. Contour lines are exact rather than
+traced from the field: points of equal sun height lie on a circle around the
+subsolar point, so each contour is one circle projected onto the map.
+
+Sweden's outline is Natural Earth 1:50m, simplified to 322 points and vendored
+as a TypeScript module — no map library, no runtime fetch. The projection is a
+Lambert conformal conic with standard parallels at 58°N and 66°N.
+
 ## Running it
 
 ```sh
